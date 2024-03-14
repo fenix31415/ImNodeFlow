@@ -269,10 +269,45 @@ namespace ImFlow {
         for (float y = fmodf(m_context.scroll().y, m_style.grid_size); y < canvas_sz.y; y += m_style.grid_size)
             draw_list->AddLine(ImVec2(0.0f, y) + win_pos, ImVec2(canvas_sz.x, y) + win_pos, m_style.colors.grid);
 
+        // TODO: REMOVE after testing
+        {
+            // draw debug rectangle
+            const float window_K = 100.0f;  // same as in `is_on_screen`
+            const float delta = window_K / m_context.scale();
+            ImU32 color = IM_COL32(255, 0, 0, 255);
+
+            float P1x = delta;
+            float P1y = delta;
+            float P2x = canvas_sz.x - delta;
+            float P2y = canvas_sz.y - delta;
+
+            draw_list->AddLine(ImVec2(P1x, P1y), ImVec2(P1x, P2y), color, 2);
+            draw_list->AddLine(ImVec2(P1x, P1y), ImVec2(P2x, P1y), color, 2);
+            draw_list->AddLine(ImVec2(P1x, P2y), ImVec2(P2x, P2y), color, 2);
+            draw_list->AddLine(ImVec2(P2x, P1y), ImVec2(P2x, P2y), color, 2);
+        }
+
+        auto is_on_screen = [this](BaseNode* node) {
+            // An offset from window border to drawing rect.
+            // Set to something negative on release.
+            // This way objects will disappear unnoticable
+            const float window_K = 100.0f;
+            const float delta = window_K / m_context.scale();
+
+            auto P1 = screen2grid({ delta, delta });
+            auto P2 = screen2grid(ImGui::GetWindowSize() - ImVec2{ delta, delta });
+            const auto& pos = node->getPos();
+            return pos.x >= P1.x && pos.x <= P2.x && pos.y >= P1.y && pos.y <= P2.y;
+            };
+
         // Update and draw nodes
         // TODO: I don't like this
         draw_list->ChannelsSplit(2);
-        for (auto &node: m_nodes) { node.second->update(); }
+        for (auto& node : m_nodes) {
+            // Skip updating nodes that are out of screen
+            if (is_on_screen(node.second.get()))
+                node.second->update();
+        }
         // Remove "toDelete" nodes
         for (auto iter = m_nodes.begin(); iter != m_nodes.end();) {
             if (iter->second->toDestroy())
@@ -284,7 +319,18 @@ namespace ImFlow {
         for (auto &node: m_nodes) { node.second->updatePublicStatus(); }
 
         // Update and draw links
-        for (auto &l: m_links) { if (!l.expired()) l.lock()->update(); }
+        for (auto& l : m_links) {
+            if (!l.expired()) {
+                auto l_p = l.lock();
+
+                auto from = l_p->left()->getParent();
+                auto to = l_p->right()->getParent();
+
+                // Skip updating links that are out of screen
+                if (is_on_screen(from) && is_on_screen(to))
+                  l_p->update();
+            }
+        }
 
         // Links drop-off
         if (m_dragOut && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
