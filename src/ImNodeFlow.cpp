@@ -270,28 +270,28 @@ namespace ImFlow {
             draw_list->AddLine(ImVec2(0.0f, y) + win_pos, ImVec2(canvas_sz.x, y) + win_pos, m_style.colors.grid);
 
         // TODO: REMOVE after testing
-        {
-            // draw debug rectangle
-            const float window_K = 100.0f;  // same as in `is_on_screen`
-            const float delta = window_K / m_context.scale();
-            ImU32 color = IM_COL32(255, 0, 0, 255);
-
-            float P1x = delta;
-            float P1y = delta;
-            float P2x = canvas_sz.x - delta;
-            float P2y = canvas_sz.y - delta;
-
-            draw_list->AddLine(ImVec2(P1x, P1y), ImVec2(P1x, P2y), color, 2);
-            draw_list->AddLine(ImVec2(P1x, P1y), ImVec2(P2x, P1y), color, 2);
-            draw_list->AddLine(ImVec2(P1x, P2y), ImVec2(P2x, P2y), color, 2);
-            draw_list->AddLine(ImVec2(P2x, P1y), ImVec2(P2x, P2y), color, 2);
-        }
+        //{
+        //    // draw debug rectangle
+        //    const float window_K = 100.0f;  // same as in `is_on_screen`
+        //    const float delta = window_K / m_context.scale();
+        //    ImU32 color = IM_COL32(255, 0, 0, 255);
+        //
+        //    float P1x = delta;
+        //    float P1y = delta;
+        //    float P2x = canvas_sz.x - delta;
+        //    float P2y = canvas_sz.y - delta;
+        //
+        //    draw_list->AddLine(ImVec2(P1x, P1y), ImVec2(P1x, P2y), color, 2);
+        //    draw_list->AddLine(ImVec2(P1x, P1y), ImVec2(P2x, P1y), color, 2);
+        //    draw_list->AddLine(ImVec2(P1x, P2y), ImVec2(P2x, P2y), color, 2);
+        //    draw_list->AddLine(ImVec2(P2x, P1y), ImVec2(P2x, P2y), color, 2);
+        //}
 
         auto is_on_screen = [this](BaseNode* node) {
             // An offset from window border to drawing rect.
             // Set to something negative on release.
             // This way objects will disappear unnoticable
-            const float window_K = 100.0f;
+            const float window_K = -500.0f;
             const float delta = window_K / m_context.scale();
 
             auto P1 = screen2grid({ delta, delta });
@@ -396,9 +396,9 @@ namespace ImFlow {
             };
 
         if (old_scale != new_scale){
-            correct_grid(2);
-            correct_grid(0.5f);
-            correct_grid(0.25f);
+            for (float border = 32.0f; border > 0.001f; border *= 0.25f) {
+                correct_grid(border);
+            }
         }
     }
 }
