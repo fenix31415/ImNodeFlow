@@ -156,7 +156,8 @@ namespace ImFlow {
         }
         draw_list->AddRect(offset + m_pos - ptl, offset + m_pos + m_size + pbr, col, m_style->radius, 0, thickness);
 
-        if (!ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::IsMouseHoveringRect({ 0,0 }, ImGui::GetWindowSize()) &&
+
+        if (!ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
             !m_inf->on_selected_node())
             selected(false);
 
@@ -178,12 +179,11 @@ namespace ImFlow {
             m_inf->draggingNode(true);
         }
         if (m_dragged || (m_selected && m_inf->isNodeDragged())) {
-            //float step = m_inf->getStyle().grid_size / m_inf->getStyle().grid_subdivisions;
+            float step = m_inf->getStyle().grid_size / m_inf->getStyle().grid_subdivisions;
             m_posTarget += ImGui::GetIO().MouseDelta;
             // "Slam" The position
-            //m_pos.x = round(m_posTarget.x / step) * step;
-            //m_pos.y = round(m_posTarget.y / step) * step;
-            m_pos = m_posTarget;
+            m_pos.x = round(m_posTarget.x / step) * step;
+            m_pos.y = round(m_posTarget.y / step) * step;
 
             if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
                 m_dragged = false;
@@ -248,7 +248,7 @@ namespace ImFlow {
         m_hovering = nullptr;
         m_hoveredNode = nullptr;
         m_draggingNode = m_draggingNodeNext;
-        m_singleUseClick = ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::IsMouseHoveringRect({ 0,0 }, ImGui::GetWindowSize());
+        m_singleUseClick = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
 
         // Create child canvas
         m_context.begin();
@@ -258,56 +258,21 @@ namespace ImFlow {
         // Display grid
         ImVec2 win_pos = ImGui::GetCursorScreenPos();
         ImVec2 canvas_sz = ImGui::GetWindowSize();
+        for (float x = fmodf(m_context.scroll().x, m_style.grid_size); x < canvas_sz.x; x += m_style.grid_size)
+            draw_list->AddLine(ImVec2(x, 0.0f) + win_pos, ImVec2(x, canvas_sz.y) + win_pos, m_style.colors.grid);
+        for (float y = fmodf(m_context.scroll().y, m_style.grid_size); y < canvas_sz.y; y += m_style.grid_size)
+            draw_list->AddLine(ImVec2(0.0f, y) + win_pos, ImVec2(canvas_sz.x, y) + win_pos, m_style.colors.grid);
         for (float x = fmodf(m_context.scroll().x, m_style.grid_size / m_style.grid_subdivisions);
              x < canvas_sz.x; x += m_style.grid_size / m_style.grid_subdivisions)
             draw_list->AddLine(ImVec2(x, 0.0f) + win_pos, ImVec2(x, canvas_sz.y) + win_pos, m_style.colors.subGrid);
         for (float y = fmodf(m_context.scroll().y, m_style.grid_size / m_style.grid_subdivisions);
              y < canvas_sz.y; y += m_style.grid_size / m_style.grid_subdivisions)
             draw_list->AddLine(ImVec2(0.0f, y) + win_pos, ImVec2(canvas_sz.x, y) + win_pos, m_style.colors.subGrid);
-        for (float x = fmodf(m_context.scroll().x, m_style.grid_size); x < canvas_sz.x; x += m_style.grid_size)
-            draw_list->AddLine(ImVec2(x, 0.0f) + win_pos, ImVec2(x, canvas_sz.y) + win_pos, m_style.colors.grid);
-        for (float y = fmodf(m_context.scroll().y, m_style.grid_size); y < canvas_sz.y; y += m_style.grid_size)
-            draw_list->AddLine(ImVec2(0.0f, y) + win_pos, ImVec2(canvas_sz.x, y) + win_pos, m_style.colors.grid);
-
-        // TODO: REMOVE after testing
-        //{
-        //    // draw debug rectangle
-        //    const float window_K = 100.0f;  // same as in `is_on_screen`
-        //    const float delta = window_K / m_context.scale();
-        //    ImU32 color = IM_COL32(255, 0, 0, 255);
-        //
-        //    float P1x = delta;
-        //    float P1y = delta;
-        //    float P2x = canvas_sz.x - delta;
-        //    float P2y = canvas_sz.y - delta;
-        //
-        //    draw_list->AddLine(ImVec2(P1x, P1y), ImVec2(P1x, P2y), color, 2);
-        //    draw_list->AddLine(ImVec2(P1x, P1y), ImVec2(P2x, P1y), color, 2);
-        //    draw_list->AddLine(ImVec2(P1x, P2y), ImVec2(P2x, P2y), color, 2);
-        //    draw_list->AddLine(ImVec2(P2x, P1y), ImVec2(P2x, P2y), color, 2);
-        //}
-
-        auto is_on_screen = [this](BaseNode* node) {
-            // An offset from window border to drawing rect.
-            // Set to something negative on release.
-            // This way objects will disappear unnoticable
-            const float window_K = -50.0f;
-            const float delta = window_K / m_context.scale();
-
-            auto P1 = screen2grid({ delta, delta });
-            auto P2 = screen2grid(ImGui::GetWindowSize() - ImVec2{ delta, delta });
-            const auto& pos = node->getPos();
-            return pos.x >= P1.x && pos.x <= P2.x && pos.y >= P1.y && pos.y <= P2.y;
-            };
 
         // Update and draw nodes
         // TODO: I don't like this
         draw_list->ChannelsSplit(2);
-        for (auto& node : m_nodes) {
-            // Skip updating nodes that are out of screen
-            if (is_on_screen(node.second.get()))
-                node.second->update();
-        }
+        for (auto &node: m_nodes) { node.second->update(); }
         // Remove "toDelete" nodes
         for (auto iter = m_nodes.begin(); iter != m_nodes.end();) {
             if (iter->second->toDestroy())
@@ -319,18 +284,7 @@ namespace ImFlow {
         for (auto &node: m_nodes) { node.second->updatePublicStatus(); }
 
         // Update and draw links
-        for (auto& l : m_links) {
-            if (!l.expired()) {
-                auto l_p = l.lock();
-
-                auto from = l_p->left()->getParent();
-                auto to = l_p->right()->getParent();
-
-                // Skip updating links that are out of screen
-                if (is_on_screen(from) && is_on_screen(to))
-                  l_p->update();
-            }
-        }
+        for (auto &l: m_links) { if (!l.expired()) l.lock()->update(); }
 
         // Links drop-off
         if (m_dragOut && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
@@ -346,7 +300,7 @@ namespace ImFlow {
         }
 
         // Links drag-out
-        if (!m_draggingNode && m_hovering && !m_dragOut && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::IsMouseHoveringRect({ 0,0 }, ImGui::GetWindowSize()))
+        if (!m_draggingNode && m_hovering && !m_dragOut && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
             m_dragOut = m_hovering;
         if (m_dragOut) {
             if (m_dragOut->getType() == PinType_Output)
@@ -361,7 +315,7 @@ namespace ImFlow {
         }
 
         // Right-click PopUp
-        if (m_rightClickPopUp && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsMouseHoveringRect({ 0,0 }, ImGui::GetWindowSize()) && ImGui::IsWindowHovered()) {
+        if (m_rightClickPopUp && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsWindowHovered()) {
             m_hoveredNodeAux = m_hoveredNode;
             ImGui::OpenPopup("RightClickPopUp");
         }
@@ -379,6 +333,7 @@ namespace ImFlow {
         // Removing dead Links
         m_links.erase(std::remove_if(m_links.begin(), m_links.end(),
                                      [](const std::weak_ptr<Link> &l) { return l.expired(); }), m_links.end());
+
         m_context.end();
     }
 }

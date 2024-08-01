@@ -33,7 +33,7 @@ inline static void AppendDrawData(ImDrawList* src, ImVec2 origin, float scale)
         dl->_VtxWritePtr[i].pos = vtx_read[i].pos * scale + origin;
     }
     for (int i = 0, c = src->IdxBuffer.size(); i < c; ++i) {
-        dl->_IdxWritePtr[i] = idx_read[i] + static_cast<ImDrawIdx>(vtx_start);
+        dl->_IdxWritePtr[i] = idx_read[i] + vtx_start;
     }
     for (auto cmd : src->CmdBuffer) {
         cmd.IdxOffset += idx_start;
@@ -76,7 +76,6 @@ public:
     [[nodiscard]] const ImVec2& origin() const { return m_origin; }
     [[nodiscard]] bool hovered() const { return m_hovered; }
     [[nodiscard]] const ImVec2& scroll() const { return m_scroll; }
-    void setScroll(const ImVec2& scroll) { m_scroll = scroll; }
     ImGuiContext* getRawContext() { return m_ctx; }
 private:
     ContainedContextConfig m_config;
