@@ -1151,7 +1151,10 @@ namespace ImFlow
         /**
          * @brief <BR>When parent gets deleted, remove the links
          */
-        ~OutPin() override { for (auto &l: m_links) if (!l.expired()) l.lock()->right()->deleteLink(); }
+        ~OutPin() override {
+            std::vector<std::weak_ptr<Link>> links = std::move(m_links);
+            for (auto &l: links) if (!l.expired()) l.lock()->right()->deleteLink();
+        }
 
         /**
          * @brief <BR>Create link between pins
