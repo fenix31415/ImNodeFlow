@@ -60,7 +60,7 @@ namespace ImFlow {
 
         // Header
         ImGui::BeginGroup();
-        ImGui::TextColored(m_style->header_title_color, m_title.c_str());
+        ImGui::TextColored(m_style->header_title_color, "%s", m_title.c_str());
         ImGui::Spacing();
         ImGui::EndGroup();
         float headerH = ImGui::GetItemRectSize().y;
@@ -157,8 +157,8 @@ namespace ImFlow {
         draw_list->AddRect(offset + m_pos - ptl, offset + m_pos + m_size + pbr, col, m_style->radius, 0, thickness);
 
 
-        if (!ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
-            !m_inf->on_selected_node())
+        if (ImGui::IsWindowHovered() && !ImGui::IsKeyDown(ImGuiKey_LeftCtrl) &&
+            ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !m_inf->on_selected_node())
             selected(false);
 
         if (isHovered()) {
@@ -169,7 +169,7 @@ namespace ImFlow {
             }
         }
 
-        if (ImGui::IsKeyPressed(ImGuiKey_Delete) && !ImGui::IsAnyItemActive() && isSelected())
+        if (ImGui::IsWindowFocused() && ImGui::IsKeyPressed(ImGuiKey_Delete) && !ImGui::IsAnyItemActive() && isSelected())
             destroy();
 
         bool onHeader = ImGui::IsMouseHoveringRect(offset + m_pos - paddingTL, offset + m_pos + headerSize);
@@ -192,12 +192,6 @@ namespace ImFlow {
             }
         }
         ImGui::PopID();
-
-        // Resolve output pins values
-        for (auto &p: m_outs)
-            p->resolve();
-        for (auto &p: m_dynamicOuts)
-            p.second->resolve();
 
         // Deleting dead pins
         m_dynamicIns.erase(std::remove_if(m_dynamicIns.begin(), m_dynamicIns.end(),
@@ -252,22 +246,23 @@ namespace ImFlow {
 
         // Create child canvas
         m_context.begin();
+        ImGui::GetIO().IniFilename = nullptr;
 
         ImDrawList *draw_list = ImGui::GetWindowDrawList();
 
         // Display grid
-        ImVec2 win_pos = ImGui::GetCursorScreenPos();
-        ImVec2 canvas_sz = ImGui::GetWindowSize();
-        for (float x = fmodf(m_context.scroll().x, m_style.grid_size); x < canvas_sz.x; x += m_style.grid_size)
-            draw_list->AddLine(ImVec2(x, 0.0f) + win_pos, ImVec2(x, canvas_sz.y) + win_pos, m_style.colors.grid);
-        for (float y = fmodf(m_context.scroll().y, m_style.grid_size); y < canvas_sz.y; y += m_style.grid_size)
-            draw_list->AddLine(ImVec2(0.0f, y) + win_pos, ImVec2(canvas_sz.x, y) + win_pos, m_style.colors.grid);
-        for (float x = fmodf(m_context.scroll().x, m_style.grid_size / m_style.grid_subdivisions);
-             x < canvas_sz.x; x += m_style.grid_size / m_style.grid_subdivisions)
-            draw_list->AddLine(ImVec2(x, 0.0f) + win_pos, ImVec2(x, canvas_sz.y) + win_pos, m_style.colors.subGrid);
-        for (float y = fmodf(m_context.scroll().y, m_style.grid_size / m_style.grid_subdivisions);
-             y < canvas_sz.y; y += m_style.grid_size / m_style.grid_subdivisions)
-            draw_list->AddLine(ImVec2(0.0f, y) + win_pos, ImVec2(canvas_sz.x, y) + win_pos, m_style.colors.subGrid);
+        ImVec2 gridSize = ImGui::GetWindowSize();
+        float subGridStep = m_style.grid_size / m_style.grid_subdivisions;
+        for (float x = fmodf(m_context.scroll().x, m_style.grid_size); x < gridSize.x; x += m_style.grid_size)
+            draw_list->AddLine(ImVec2(x, 0.0f), ImVec2(x, gridSize.y), m_style.colors.grid);
+        for (float y = fmodf(m_context.scroll().y, m_style.grid_size); y < gridSize.y; y += m_style.grid_size)
+            draw_list->AddLine(ImVec2(0.0f, y), ImVec2(gridSize.x, y), m_style.colors.grid);
+        if (m_context.scale() > 0.7f) {
+            for (float x = fmodf(m_context.scroll().x, subGridStep); x < gridSize.x; x += subGridStep)
+                draw_list->AddLine(ImVec2(x, 0.0f), ImVec2(x, gridSize.y), m_style.colors.subGrid);
+            for (float y = fmodf(m_context.scroll().y, subGridStep); y < gridSize.y; y += subGridStep)
+                draw_list->AddLine(ImVec2(0.0f, y), ImVec2(gridSize.x, y), m_style.colors.subGrid);
+        }
 
         // Update and draw nodes
         // TODO: I don't like this
@@ -333,6 +328,9 @@ namespace ImFlow {
         // Removing dead Links
         m_links.erase(std::remove_if(m_links.begin(), m_links.end(),
                                      [](const std::weak_ptr<Link> &l) { return l.expired(); }), m_links.end());
+
+        // Clearing recursion blacklist
+        m_nodeRecursionBlacklist.clear();
 
         m_context.end();
     }
