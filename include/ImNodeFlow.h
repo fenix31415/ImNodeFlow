@@ -400,6 +400,7 @@ namespace ImFlow
          * @return Const reference to editor's grid scroll
          */
         const ImVec2& getScroll() { return m_context.scroll(); }
+        void setScroll(const ImVec2& scroll) { return m_context.setScroll(scroll); }
 
         /**
          * @brief <BR>Get editor's list of nodes
@@ -522,6 +523,7 @@ namespace ImFlow
     {
     public:
         BaseNode() = default;
+        virtual ~BaseNode() = default;
 
         /**
          * @brief <BR>Main loop of the node

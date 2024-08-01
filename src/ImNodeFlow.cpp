@@ -156,8 +156,7 @@ namespace ImFlow {
         }
         draw_list->AddRect(offset + m_pos - ptl, offset + m_pos + m_size + pbr, col, m_style->radius, 0, thickness);
 
-
-        if (!ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+        if (!ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::IsMouseHoveringRect({ 0,0 }, ImGui::GetWindowSize()) &&
             !m_inf->on_selected_node())
             selected(false);
 
@@ -179,11 +178,12 @@ namespace ImFlow {
             m_inf->draggingNode(true);
         }
         if (m_dragged || (m_selected && m_inf->isNodeDragged())) {
-            float step = m_inf->getStyle().grid_size / m_inf->getStyle().grid_subdivisions;
+            //float step = m_inf->getStyle().grid_size / m_inf->getStyle().grid_subdivisions;
             m_posTarget += ImGui::GetIO().MouseDelta;
             // "Slam" The position
-            m_pos.x = round(m_posTarget.x / step) * step;
-            m_pos.y = round(m_posTarget.y / step) * step;
+            //m_pos.x = round(m_posTarget.x / step) * step;
+            //m_pos.y = round(m_posTarget.y / step) * step;
+            m_pos = m_posTarget;
 
             if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
                 m_dragged = false;
@@ -248,7 +248,7 @@ namespace ImFlow {
         m_hovering = nullptr;
         m_hoveredNode = nullptr;
         m_draggingNode = m_draggingNodeNext;
-        m_singleUseClick = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+        m_singleUseClick = ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::IsMouseHoveringRect({ 0,0 }, ImGui::GetWindowSize());
 
         // Create child canvas
         m_context.begin();
@@ -291,7 +291,7 @@ namespace ImFlow {
             // An offset from window border to drawing rect.
             // Set to something negative on release.
             // This way objects will disappear unnoticable
-            const float window_K = -500.0f;
+            const float window_K = -50.0f;
             const float delta = window_K / m_context.scale();
 
             auto P1 = screen2grid({ delta, delta });
@@ -346,7 +346,7 @@ namespace ImFlow {
         }
 
         // Links drag-out
-        if (!m_draggingNode && m_hovering && !m_dragOut && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+        if (!m_draggingNode && m_hovering && !m_dragOut && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::IsMouseHoveringRect({ 0,0 }, ImGui::GetWindowSize()))
             m_dragOut = m_hovering;
         if (m_dragOut) {
             if (m_dragOut->getType() == PinType_Output)
@@ -361,7 +361,7 @@ namespace ImFlow {
         }
 
         // Right-click PopUp
-        if (m_rightClickPopUp && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsWindowHovered()) {
+        if (m_rightClickPopUp && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsMouseHoveringRect({ 0,0 }, ImGui::GetWindowSize()) && ImGui::IsWindowHovered()) {
             m_hoveredNodeAux = m_hoveredNode;
             ImGui::OpenPopup("RightClickPopUp");
         }
@@ -379,26 +379,6 @@ namespace ImFlow {
         // Removing dead Links
         m_links.erase(std::remove_if(m_links.begin(), m_links.end(),
                                      [](const std::weak_ptr<Link> &l) { return l.expired(); }), m_links.end());
-
-        float old_scale = m_context.scale();
-
         m_context.end();
-
-        float new_scale = m_context.scale();
-
-        auto correct_grid = [this, old_scale, new_scale](float border) {
-            if (old_scale < border && new_scale > border) {
-                m_style.grid_size /= m_style.grid_subdivisions;
-            }
-            else if (old_scale > border && new_scale < border) {
-                m_style.grid_size *= m_style.grid_subdivisions;
-            }
-            };
-
-        if (old_scale != new_scale) {
-            for (float border = 32.0f; border > 0.001f; border *= 0.5f) {
-                correct_grid(border);
-            }
-        }
     }
 }
